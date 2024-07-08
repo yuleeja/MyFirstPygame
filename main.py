@@ -1,4 +1,5 @@
 import pygame
+import random
 
 clock = pygame.time.Clock()
 
@@ -16,7 +17,7 @@ bg = pygame.image.load('img/bg.jpg').convert()
 gameover_img = pygame.image.load('img/gameover.jpg').convert()
 gameover_img = pygame.transform.scale(gameover_img, (640, 480))
 
-# Player
+# Игрок
 # движение влево
 walk_left = [
     pygame.image.load('img/player_left/player_left1.png').convert_alpha(),
@@ -54,8 +55,15 @@ enemy_timer = pygame.USEREVENT + 1
 pygame.time.set_timer(enemy_timer, 2500)
 
 label = pygame.font.Font('fonts/Roboto-Black.ttf', 40)
-restart_label = label.render('Try again', False, (247,40,66))
+restart_label = label.render('Try again', False, (247, 40, 66))
 restart_label_rect = restart_label.get_rect(topleft=(240, 400))
+
+# патроны
+bullets_left = random.randint(1, 16)  # количество пуль
+label_bullets_count = pygame.font.Font('fonts/Roboto-Black.ttf', 20)  # шрифт для отображения количества пуль
+bullet = pygame.image.load('img/bullet.png').convert_alpha()
+bullet = pygame.transform.scale(bullet, (25, 25))
+bullets = []
 
 gameplay = True
 
@@ -64,6 +72,8 @@ while running:
 
     screen.blit(bg, (bg_x, 0))
     screen.blit(bg, (bg_x + 640, 0))
+
+    screen.blit(bullet, (15, 25))
 
     if gameplay:
 
@@ -81,6 +91,7 @@ while running:
 
         keys = pygame.key.get_pressed()  # получаем кнопку, на которую нажал пользователь
 
+        # движения влево, вправо
         if keys[pygame.K_LEFT]:
             screen.blit(walk_left[player_anim_count], (player_x, player_y))
         else:
@@ -91,6 +102,7 @@ while running:
         elif keys[pygame.K_RIGHT] and player_x < 560:
             player_x += player_speed
 
+        # прыжок
         if not is_jump:
             if keys[pygame.K_SPACE]:
                 is_jump = True
@@ -114,25 +126,55 @@ while running:
         bg_x -= 2
         if bg_x == -640:
             bg_x = 0
+
+        # стрельба
+        if bullets:
+            for (i, el) in enumerate(bullets):
+                screen.blit(bullet, (el.x, el.y))
+                el.x += 4
+
+                if el.x > 650:
+                    bullets.pop(i)
+
+                if enemy_list_in_game:
+                    for (index, enemy_el) in enumerate(enemy_list_in_game):
+                        if el.colliderect(enemy_el):
+                            enemy_list_in_game.pop(index)
+                            bullets.pop(i)
+
+            # отображение количества выстрелов
+            bullets_label = label_bullets_count.render(f'{bullets_left}', False, (247, 40, 66))
+            screen.blit(bullets_label, (45, 25))
+
+        # game over
     else:
         screen.blit(gameover_img, (0, 0))
         pygame.mixer.pause()
         screen.blit(restart_label, restart_label_rect)
 
-        mouse = pygame.mouse.get_pos() #определяем, где находится мышка
-        if restart_label_rect.collidepoint(mouse) and pygame.mouse.get_pressed()[0]: #.get_pressed()[0] - нажатие ЛКM
+        # restart game
+        mouse = pygame.mouse.get_pos()  # определяем, где находится мышка
+        if restart_label_rect.collidepoint(mouse) and pygame.mouse.get_pressed()[0]:  # .get_pressed()[0] - нажатие ЛКM
             gameplay = True
             bg_sound.play(-1)
             player_x = 150
             enemy_list_in_game.clear()
-
+            bullets.clear()
+            bullets_left = random.randint(1, 16)
 
     pygame.display.update()
 
+    # создание врагов
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
             pygame.quit()
         if event.type == enemy_timer:
             enemy_list_in_game.append(enemy.get_rect(topleft=(642, 355)))
+
+        # одиночный выстрел
+        if gameplay and event.type == pygame.KEYUP and event.key == pygame.K_b and bullets_left > 0:
+            bullets.append(bullet.get_rect(topleft=(player_x + 30, player_y + 10)))
+            bullets_left -= 1
+
     clock.tick(15)
